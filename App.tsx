@@ -4,16 +4,8 @@ import SelectField from './components/SelectField';
 import AdminLogin from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
 import { AGE_GROUPS, JOB_FUNCTIONS, QUESTIONS, WEIGHTS } from './constants';
-
-// 진단 결과 데이터 타입을 정의합니다.
-interface Submission {
-  id: number;
-  timestamp: string;
-  name: string;
-  ageGroup: string;
-  jobFunction: string;
-  score: number;
-}
+import { collection, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { db } from './firebaseConfig';
 
 const App: React.FC = () => {
   const [name, setName] = useState('');
@@ -35,7 +27,7 @@ const App: React.FC = () => {
     setAnswers(prev => ({ ...prev, [questionIndex]: value }));
   };
   
-  const handleComplete = () => {
+  const handleComplete = async () => {
     if (Object.keys(answers).length !== QUESTIONS.length) {
       alert('모든 문항에 답변해주세요.');
       return;
@@ -49,19 +41,21 @@ const App: React.FC = () => {
     
     setScore(calculatedScore);
 
-    // 진단 결과를 localStorage에 저장합니다.
-    const newSubmission: Submission = {
-      id: Date.now(),
-      timestamp: new Date().toLocaleString('ko-KR'),
-      name: name,
-      ageGroup: ageGroup,
-      jobFunction: jobFunction,
-      score: calculatedScore,
-    };
-
-    const existingSubmissions: Submission[] = JSON.parse(localStorage.getItem('tomoSubmissions') || '[]');
-    const updatedSubmissions = [...existingSubmissions, newSubmission];
-    localStorage.setItem('tomoSubmissions', JSON.stringify(updatedSubmissions));
+    // 진단 결과를 Firestore에 저장합니다.
+    try {
+      const newSubmission = {
+        name: name,
+        ageGroup: ageGroup,
+        jobFunction: jobFunction,
+        score: calculatedScore,
+        timestamp: new Date(), // Firestore가 정렬할 수 있도록 Date 객체로 저장
+      };
+      await addDoc(collection(db, "tomoSubmissions"), newSubmission);
+    } catch (error) {
+      console.error("Error adding document: ", error);
+      alert('결과 저장 중 오류가 발생했습니다. 인터넷 연결을 확인하고 다시 시도해주세요.');
+      return; // 저장이 실패하면 결과 페이지로 넘어가지 않음
+    }
 
     setPage('results');
   };

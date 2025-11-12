@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { db } from '../firebaseConfig';
 import { AGE_GROUPS, JOB_FUNCTIONS } from '../constants';
 
 // Chart.js가 전역 변수로 로드되므로 타입을 선언해줍니다.
 declare var Chart: any;
 
 interface Submission {
-  id: number;
+  id: string; // Firestore 문서 ID를 위해 string으로 변경
   timestamp: string;
   name: string;
   ageGroup: string;
@@ -25,8 +27,35 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
   const jobChartInstance = useRef<any>(null);
 
   useEffect(() => {
-    const storedSubmissions = JSON.parse(localStorage.getItem('tomoSubmissions') || '[]');
-    setSubmissions(storedSubmissions);
+    const fetchSubmissions = async () => {
+      try {
+        const submissionsCollection = collection(db, 'tomoSubmissions');
+        // 'timestamp' 필드를 기준으로 내림차순(최신순)으로 정렬합니다.
+        const q = query(submissionsCollection, orderBy('timestamp', 'desc'));
+        const querySnapshot = await getDocs(q);
+        
+        const submissionsData = querySnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            name: data.name,
+            ageGroup: data.ageGroup,
+            jobFunction: data.jobFunction,
+            score: data.score,
+            // Firestore Timestamp 객체를 한국 시간 형식의 문자열로 변환
+            timestamp: data.timestamp.toDate().toLocaleString('ko-KR'),
+          };
+        }) as Submission[];
+        
+        setSubmissions(submissionsData);
+
+      } catch (error) {
+        console.error("Error fetching documents: ", error);
+        alert('데이터를 불러오는 데 실패했습니다. Firebase 설정을 확인해주세요.');
+      }
+    };
+
+    fetchSubmissions();
   }, []);
 
   useEffect(() => {
@@ -66,8 +95,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
               tooltip: {
                 callbacks: {
                     label: function(context: any) {
-                        const submission = submissions[context.dataIndex];
-                        return `${submission.name}: ${context.parsed.y.toFixed(2)}`;
+                        const submission = submissions.find(s => s.score === context.parsed.y && s.ageGroup === context.parsed.x);
+                        return submission ? `${submission.name}: ${context.parsed.y.toFixed(2)}` : `${context.parsed.y.toFixed(2)}`;
                     }
                 }
               }
@@ -103,8 +132,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
               tooltip: {
                 callbacks: {
                     label: function(context: any) {
-                        const submission = submissions[context.dataIndex];
-                        return `${submission.name}: ${context.parsed.y.toFixed(2)}`;
+                       const submission = submissions.find(s => s.score === context.parsed.y && s.jobFunction === context.parsed.x);
+                       return submission ? `${submission.name}: ${context.parsed.y.toFixed(2)}` : `${context.parsed.y.toFixed(2)}`;
                     }
                 }
               }

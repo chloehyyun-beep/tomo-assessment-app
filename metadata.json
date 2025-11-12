@@ -1,0 +1,5 @@
+{
+  "name": "ToMo ver.1",
+  "description": "A web application to conduct the Total Motivation Assessment, based on the book 'Primed to Perform' by Neel Doshi and Lindsay McGregor.",
+  "requestFramePermissions": []
+}
